@@ -22,3 +22,16 @@ def calculate_top_countries_by_casualties():
 def get_top_5_group_by_casualties():
     groups = find_top_5_group_by_casualties()
     return jsonify({"Groups": groups}), 200
+
+
+
+@analysis_blueprint.route("/diff_percentage", methods=["GET"])
+def get_diff_percentage_by_year_and_country():
+    years = calc_diff_percentage_by_year_and_country()
+    return jsonify({"Years": years}), 200
+
+
+@analysis_blueprint.route("/active_groups", methods=["GET"])
+def get_most_active_groups_by_country():
+    countries = find_most_active_groups_by_country()
+    return jsonify({"Countries": countries}), 200

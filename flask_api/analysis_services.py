@@ -76,3 +76,41 @@ def find_top_5_group_by_casualties():
 
     top_five = sorted_data.head(5)
     return top_five.to_dict(orient='records')
+
+
+def calc_diff_percentage_by_year_and_country():
+
+    df = create_dataframe_from_collection()
+
+    df = df[df['group'] != 'Unknown']
+
+    df['year'] = df['date_event'].dt.year
+    df['country'] = df['location'].apply(lambda x: x.get('country', None))
+
+    aggregated_data = (df.groupby('year')
+    .agg(
+        count_events=('event_id', 'count')
+    ).reset_index()
+    )
+
+    sorted_data = aggregated_data[['year', 'count_events']].sort_values(by='year')
+
+    sorted_data['diff_percentage'] = sorted_data['count_events'].pct_change()
+    return sorted_data.to_dict(orient='records')
+
+
+def find_most_active_groups_by_country():
+
+    df = create_dataframe_from_collection()
+
+    df['country'] = df['location'].apply(lambda x: x.get('country', None))
+
+    aggregated_data = (df.groupby(['country', 'group'])
+    .agg(
+        count_events=('event_id', 'count')
+    ).reset_index()
+    )
+
+    sorted_data = aggregated_data[['country', 'group', 'count_events']].sort_values(by='count_events', ascending=False)
+
+    return sorted_data.to_dict(orient='records')
