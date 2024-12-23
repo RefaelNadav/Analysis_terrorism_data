@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Map</title>
+</head>
+<body>
+    <h1>Interactive Map with Flask and Folium</h1>
+    <!-- User input form -->
+    <form method="GET" action="/">
+        <label for="query">Choose a query:</label>
+        <select id="query" name="query" required>
+            <option value="casualties_by_country">Casualties by Country</option>
+            <option value="diff_percentage">Difference Percentage by Year and Country</option>
+            <option value="active_groups">Most Active Groups by Country</option>
+            <option value="common_target">Max Groups with Common Target by Country</option>
+        </select>
+        <br>
+        <label for="top">Top (optional):</label>
+{#        <input type="number" id="top" name="top" min="1" placeholder="Enter a number">#}
+{#        <br>#}
+{#        <button type="submit">Run Query</button>#}
+{#        <input type="text" id="country" name="country" placeholder="Enter Country Name" required><br>#}
+        <button type="submit">Update Map</button>
+    </form>
+    <!-- Embed the updated map -->
+    <div id="results">
+        <iframe src="/flask_api/static/maps/map.html" width="100%" height="600px"></iframe>
+    </div>
+</body>
+</html>
+
