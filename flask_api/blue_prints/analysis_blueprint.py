@@ -2,16 +2,14 @@ from flask import Blueprint, jsonify, request, render_template, send_from_direct
 from flask_api.analysis_services import *
 import os
 
-# analysis_blueprint = Blueprint("analysis", __name__, url_prefix="/api/analysis")
 analysis_blueprint = Blueprint("analysis", __name__, static_folder="static")
-
 
 @analysis_blueprint.route("/", methods=["GET"])
 def run_selected_query():
     query = request.args.get("query")
-    top = request.args.get("top", type=int)
 
     if not query:
+        reset_map_file()
         return render_template("index.html")
 
     # מיפוי בין השמות בפורם לפונקציות
@@ -25,10 +23,8 @@ def run_selected_query():
     }
 
     if query in query_map:
-        # קריאה לפונקציה המתאימה
         return query_map[query]()
 
-    # במקרה שהשאילתה לא נמצאה
     return jsonify({"error": "Invalid query selected"}), 400
 
 
@@ -49,7 +45,6 @@ def get_top_countries_by_casualties():
     top_five = request.args.get("top_five", default=None)
     calculate_top_countries_by_casualties(top_five)
     return render_template("index.html")
-    # return jsonify({"average countries": avg_countries}), 200
 
 
 @analysis_blueprint.route("/api/analysis/top_groups", methods=["GET"])
@@ -62,14 +57,12 @@ def get_top_5_group_by_casualties():
 def get_diff_percentage_by_year_and_country():
     years = calc_diff_percentage_by_year_and_country()
     return render_template("index.html")
-    # return jsonify({"Years": years}), 200
 
 
 @analysis_blueprint.route("/api/analysis/active_groups", methods=["GET"])
 def get_most_active_groups_by_country():
     countries = find_most_active_groups_by_country()
-    return render_template("index.html")
-    # return jsonify({"Countries": countries}), 200
+    return jsonify({"Countries": countries}), 200
 
 
 @analysis_blueprint.route("/api/analysis/common_target/<country>", methods=["GET"])

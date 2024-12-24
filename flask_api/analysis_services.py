@@ -2,6 +2,7 @@ import pandas as pd
 import folium
 from mongo_service.db import collection
 import os
+from random import choice
 
 
 def create_dataframe_from_collection():
@@ -17,34 +18,39 @@ def create_dataframe_from_collection():
     return df
 
 
-def generate_color_map(categories):
-    """Generate a unique color for each category."""
-    unique_categories = categories.unique()
-    color_map = {category: plt.cm.tab20(i / len(unique_categories)) for i, category in enumerate(unique_categories)}
-    # Convert RGB to HEX
-    return {category: f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}" for category, (r, g, b, _) in color_map.items()}
+static_folder = os.path.join("flask_api", "static", "maps")
+map_file = os.path.join(static_folder, "map.html")
+
+
+def reset_map_file():
+    m = folium.Map(location=[0, 0], zoom_start=2)
+
+    m.save(map_file)
+    return "/static/maps/map.html"
 
 
 def load_map(data, lat_col='latitude', lon_col='longitude', popup_col=None, color='blue'):
     m = folium.Map(location=[0, 0], zoom_start=2)
 
+    colors = ['red', 'blue', 'green', 'purple', 'orange']
+
     for _, row in data.iterrows():
         if pd.notna(row[lat_col]) and pd.notna(row[lon_col]) and pd.notna(row[popup_col]):
             popup_text = row[popup_col] if popup_col and popup_col in row else ""
             # color = get_color(row['score'])
-            color = 'blue'
 
-            folium.CircleMarker(
+
+            folium.Marker(
                 location=[row[lat_col], row[lon_col]],
                 radius=10,
-                popup=popup_text,
-                color='green',
-                fill=True,
-                fill_opacity=0.7
+                popup=folium.Popup(
+                    popup_text,
+                    max_width=300
+                ),
+                icon=folium.Icon(color=choice(colors))
             ).add_to(m)
 
-    static_folder = os.path.join("flask_api", "static", "maps")
-    map_file = os.path.join(static_folder, "map.html")
+
     m.save(map_file)
     return "/static/maps/map.html"
 
@@ -94,7 +100,7 @@ def calculate_top_countries_by_casualties(top_five=None):
         sorted_data = sorted_data.head(5)
     map_file = load_map(sorted_data, lat_col='latitude', lon_col='longitude', popup_col='popup')
     return map_file
-    # return sorted_data.to_dict(orient='records')
+
 
 def find_top_5_group_by_casualties():
 
@@ -158,7 +164,6 @@ def calc_diff_percentage_by_year_and_country():
 
     map_file = load_map(avg_diff_percentage, lat_col='latitude', lon_col='longitude', popup_col='popup')
     return map_file
-    # return sorted_data.to_dict(orient='records')
 
 
 def find_most_active_groups_by_country(country=None):
@@ -176,9 +181,6 @@ def find_most_active_groups_by_country(country=None):
         lambda x: f"Country: {x['country']}<br>Group: {x['group']}<br>Events: {x['count_events']}",
         axis=1
     )
-
-    # map_file = load_map(max_per_country, lat_col='latitude', lon_col='longitude', popup_col='popup', color='green')
-    # return map_file
 
     sorted_data = aggregated_data[['country', 'group', 'count_events']].sort_values(by='count_events', ascending=False)
 
