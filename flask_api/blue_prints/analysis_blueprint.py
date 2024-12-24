@@ -71,7 +71,7 @@ def get_max_groups_with_common_target_by_country(country):
     return jsonify({"Country": target_type}), 200
 
 
-@analysis_blueprint.route("/common_attack/<country>", methods=["GET"])
+@analysis_blueprint.route("/api/analysis/common_attack/<country>", methods=["GET"])
 def get_max_groups_with_common_attack_type_by_country(country):
     attack_type = find_max_groups_with_common_attack_type_by_country()
     return jsonify({"Country": attack_type}), 200
