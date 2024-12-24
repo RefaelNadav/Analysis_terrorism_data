@@ -12,8 +12,8 @@ def create_dataframe_from_collection():
     df['country'] = df['location'].apply(lambda x: x.get('country', None))
     df['longitude'] = df['location'].apply(lambda x: x.get('coordinates', None).get('longitude', None))
     df['latitude'] = df['location'].apply(lambda x: x.get('coordinates', None).get('latitude', None))
-    df['number_kill'] = df['casualties'].apply(lambda x: x.get('number_kill', 0))
-    df['number_wound'] = df['casualties'].apply(lambda x: x.get('number_wound', 0))
+    df['casualties'] = df['casualties'].apply(
+        lambda x: (x.get('number_wound', 0) or 0) + (x.get('number_kill', 0) or 0) * 2)
     return df
 
 
@@ -50,55 +50,48 @@ def load_map(data, lat_col='latitude', lon_col='longitude', popup_col=None, colo
 
 
 
-def order_by_attack_types_deadliest(top=None):
+def order_by_attack_types_deadliest(top_five=None):
 
     df = create_dataframe_from_collection()
-
-    df['number_kill'] = df['casualties'].apply(lambda x: x.get('number_kill', 0))
-    df['number_wound'] = df['casualties'].apply(lambda x: x.get('number_wound', 0))
 
     df = df[df['attack_type'] != 'Unknown']
 
     aggregated_data = (df.groupby('attack_type')
     .agg(
-        total_kill=('number_kill', 'sum'),
-        total_wound=('number_wound', 'sum')
+        score=('casualties', 'sum')
     ).reset_index()
     )
 
-    aggregated_data['score'] = aggregated_data['total_kill'] * 2 + aggregated_data['total_wound']
     sorted_data = aggregated_data[['attack_type', 'score']].sort_values(by='score', ascending=False)
 
-    if top is not None:
-        sorted_data = sorted_data.head(top)
-    map_file = load_map(sorted_data)
-    return map_file
-    # return sorted_data.to_dict(orient='records')
+    if top_five is not None:
+        sorted_data = sorted_data.head(5)
+
+    return sorted_data.to_dict(orient='records')
 
 
-def calculate_top_countries_by_casualties(top=None):
+def calculate_top_countries_by_casualties(top_five=None):
 
     df = create_dataframe_from_collection()
 
     aggregated_data = (df.groupby('country')
     .agg(
-        average_kill=('number_kill', 'mean'),
-        average_wound=('number_wound', 'mean'),
+        average_casualties=('casualties', 'mean'),
         longitude=('longitude', 'first'),
         latitude=('latitude', 'first')
     ).reset_index()
     )
 
-    aggregated_data['score'] = aggregated_data['average_kill'] * 2 + aggregated_data['average_wound']
-    sorted_data = aggregated_data[['country', 'score', 'longitude', 'latitude']].sort_values(by='score', ascending=False)
+    sorted_data = (aggregated_data[['country', 'average_casualties', 'longitude', 'latitude']].
+                   sort_values(by='average_casualties', ascending=False))
 
     sorted_data['popup'] = sorted_data.apply(
-        lambda x: f"Country: {x['country']}<br>Score average: {x['score']:.2%}",
+        lambda x: f"Country: {x['country']}<br>Score average: {x['average_casualties']:.2%}",
         axis=1
     )
 
-    if top is not None:
-        sorted_data = sorted_data.head(top)
+    if top_five is not None:
+        sorted_data = sorted_data.head(5)
     map_file = load_map(sorted_data, lat_col='latitude', lon_col='longitude', popup_col='popup')
     return map_file
     # return sorted_data.to_dict(orient='records')
@@ -107,20 +100,16 @@ def find_top_5_group_by_casualties():
 
     df = create_dataframe_from_collection()
 
-    df['number_kill'] = df['casualties'].apply(lambda x: x.get('number_kill', 0))
-    df['number_wound'] = df['casualties'].apply(lambda x: x.get('number_wound', 0))
-
     df = df[df['target_type'] != 'Unknown']
 
     aggregated_data = (df.groupby('target_type')
     .agg(
-        total_kill=('number_kill', 'sum'),
-        total_wound=('number_wound', 'sum')
+        total_casualties=('casualties', 'sum')
     ).reset_index()
     )
 
-    aggregated_data['score'] = aggregated_data['total_kill'] * 2 + aggregated_data['total_wound']
-    sorted_data = aggregated_data[['target_type', 'score']].sort_values(by='score', ascending=False)
+    sorted_data = (aggregated_data[['target_type', 'total_casualties']].
+                   sort_values(by='total_casualties', ascending=False))
 
     top_five = sorted_data.head(5)
     return top_five.to_dict(orient='records')
@@ -132,16 +121,18 @@ def calc_diff_percentage_by_year_and_country():
 
     df = df[df['group'] != 'Unknown']
 
-    # df['year'] = df['date_event'].dt.year
-    # df['country'] = df['location'].apply(lambda x: x.get('country', None))
-    # df['longitude'] = df['location'].apply(lambda x: x.get('coordinates', None).get('longitude', None))
-    # df['latitude'] = df['location'].apply(lambda x: x.get('coordinates', None).get('latitude', None))
+    country_coords = (
+        df.groupby('country')
+        .agg(
+            longitude=('longitude', 'first'),
+            latitude=('latitude', 'first')
+        )
+        .reset_index()
+    )
 
     aggregated_data = (df.groupby(['country', 'year'])
     .agg(
-        count_events=('event_id', 'count'),
-        longitude=('longitude', 'first'),
-        latitude=('latitude', 'first')
+        count_events=('event_id', 'count')
     ).reset_index()
     )
 
@@ -155,7 +146,7 @@ def calc_diff_percentage_by_year_and_country():
 
     avg_diff_percentage = sorted_data.groupby('country')['diff_percentage'].mean().reset_index()
     avg_diff_percentage = avg_diff_percentage.merge(
-        aggregated_data[['country', 'longitude', 'latitude']].drop_duplicates(),
+        country_coords,
         on='country',
         how='left'
     )
@@ -170,13 +161,9 @@ def calc_diff_percentage_by_year_and_country():
     # return sorted_data.to_dict(orient='records')
 
 
-def find_most_active_groups_by_country():
+def find_most_active_groups_by_country(country=None):
 
     df = create_dataframe_from_collection()
-
-    # df['country'] = df['location'].apply(lambda x: x.get('country', None))
-    # df['longitude'] = df['location'].apply(lambda x: x.get('coordinates', {}).get('longitude'))
-    # df['latitude'] = df['location'].apply(lambda x: x.get('coordinates', {}).get('latitude'))
 
     aggregated_data = (df.groupby(['country', 'group'])
     .agg(
@@ -190,24 +177,46 @@ def find_most_active_groups_by_country():
         axis=1
     )
 
-    map_file = load_map(max_per_country, lat_col='latitude', lon_col='longitude', popup_col='popup', color='green')
-    return map_file
+    # map_file = load_map(max_per_country, lat_col='latitude', lon_col='longitude', popup_col='popup', color='green')
+    # return map_file
 
-    # sorted_data = aggregated_data[['country', 'group', 'count_events']].sort_values(by='count_events', ascending=False)
-    #
-    # return sorted_data.to_dict(orient='records')
+    sorted_data = aggregated_data[['country', 'group', 'count_events']].sort_values(by='count_events', ascending=False)
+
+    return sorted_data.to_dict(orient='records')
 
 
-def find_max_groups_with_common_target_by_country():
+def find_max_groups_with_common_target_by_country(country):
     df = create_dataframe_from_collection()
 
-    df['country'] = df['location'].apply(lambda x: x.get('country', None))
+    df = df[df['country'].str.lower() == country.lower()]
+
+    if df.empty:
+        return f"No rows found for country: {country}"
 
     grouped = df.groupby(['target_type', 'country']).agg({
     'group': ['nunique', lambda x: list(x.unique())]
     }).reset_index()
 
     grouped.columns = ['target_type', 'country', 'unique_groups', 'group_names']
+
+    max_group = grouped[grouped['unique_groups'] == grouped['unique_groups'].max()]
+
+    return max_group.to_dict(orient='records')
+
+
+def find_max_groups_with_common_attack_type_by_country(country):
+    df = create_dataframe_from_collection()
+
+    df = df[df['country'].str.lower() == country.lower()]
+
+    if df.empty:
+        return f"No rows found for country: {country}"
+
+    grouped = df.groupby(['attack_type', 'country']).agg({
+    'group': ['nunique', lambda x: list(x.unique())]
+    }).reset_index()
+
+    grouped.columns = ['attack_type', 'country', 'unique_groups', 'group_names']
 
     max_group = grouped[grouped['unique_groups'] == grouped['unique_groups'].max()]
 
